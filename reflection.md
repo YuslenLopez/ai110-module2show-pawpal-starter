@@ -7,6 +7,19 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+1. The inital design takes into account the owner, pet, constraints set by both and uses that to design a daily plan that then creates a task to be completed. 
+2. Classes such as : 
+a.Owner- determines the constraints for the plan 
+b.Pet- effects the constraints and information present in the plan 
+c.Daily plan- takes into account the information from the pet and owner to create a scheduled task. 
+d.Scheduler- Displays the Daily and scheduled plans, also allows editing of the displayed plans  
+
+Attributes: 
+a.Owner - name, age, specialNeeds, decides the constraints for plan
+b.Pet - name, age, breed, specialNeeds, plan must take into account the dog and the dog recieved a plan  
+c.Scheduler- takes information from first two classes to determine a Dailyplan/ task for the pet and displays it with editing capabilities for the owner.
+d.Plan-describes the time and priority of the taks such as : walks, feeding, medicine, grooming, etc
+
 **b. Design changes**
 
 - Did your design change during implementation?
