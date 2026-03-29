@@ -68,12 +68,13 @@ class Pet:
 class Task:
     """Represents a single pet care task."""
     
-    def __init__(self, task_id: str, name: str, task_type: str, duration: int, priority: int):
+    def __init__(self, task_id: str, name: str, task_type: str, duration: int, priority: int, pet_id: str):
         self.task_id = task_id
         self.name = name
         self.task_type = task_type  # e.g., 'walk', 'feeding', 'medicine', 'grooming'
         self.duration = duration
         self.priority = priority
+        self.pet_id = pet_id
     
     def get_id(self) -> str:
         """Return the task ID."""
@@ -93,6 +94,10 @@ class Task:
     
     def get_priority(self) -> int:
         """Return the task priority level."""
+        pass
+    
+    def get_pet_id(self) -> str:
+        """Return the pet ID associated with this task."""
         pass
 
 

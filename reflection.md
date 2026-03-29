@@ -25,6 +25,8 @@ d.Plan-describes the time and priority of the taks such as : walks, feeding, med
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
+1. Yes the design change because there was a missing link between the tasks and pets to ensure each pet was uniquely tied to their plan/ tasks. 
+2. The change made was the addition of a pet_id for each of the tasks so that they are uniquely tied to one pet and a owner can view all of their pets by unique ids. 
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
