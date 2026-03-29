@@ -1,5 +1,8 @@
 #backend logic layer where all classes live
 
+import uuid
+from datetime import datetime, timedelta
+
 class Owner:
     """Manages multiple pets and provides access to all their tasks."""
     
@@ -108,17 +111,24 @@ class Pet:
 class Task:
     """Represents a single activity (description, time, frequency, completion status)."""
     
-    def __init__(self, task_id: str, name: str, description: str, task_type: str, time: str, frequency: str, duration: int, priority: int, pet_id: str):
-        """Initialize a Task with ID, name, description, type, time, frequency, duration, priority, and pet ID."""
+    def __init__(self, task_id: str, name: str, description: str, task_type: str, time: str, frequency: str, duration: int, priority: int, pet_id: str, day: str = None):
+        """Initialize a Task with ID, name, description, type, time, frequency, duration, priority, pet ID, and day.
+        
+        Args:
+            task_type: Recurrence type - 'once', 'daily', or 'weekly'
+            day: Day of week (Monday-Sunday), required for weekly tasks, optional for others
+            frequency: Legacy parameter kept for compatibility, not used if task_type is provided
+        """
         self.task_id = task_id
         self.name = name
         self.description = description  # Detailed description of the activity
-        self.task_type = task_type  # e.g., 'walk', 'feeding', 'medicine', 'grooming'
-        self.time = time  # e.g., '09:00' or 'morning'
-        self.frequency = frequency  # e.g., 'daily', 'twice daily', 'weekly'
+        self.task_type = task_type  # e.g., 'once', 'daily', 'weekly' (recurrence type)
+        self.time = time  # e.g., '09:00'
+        self.frequency = frequency  # e.g., 'daily', 'twice daily', 'weekly' (legacy)
         self.duration = duration  # Duration in minutes
         self.priority = priority
         self.pet_id = pet_id
+        self.day = day  # Day of week (Monday-Sunday)
         self.completion_status = False  # Track if task is completed
     
     def get_id(self) -> str:
@@ -156,6 +166,10 @@ class Task:
     def get_pet_id(self) -> str:
         """Return the pet ID associated with this task."""
         return self.pet_id
+    
+    def get_day(self) -> str:
+        """Return the day of week for this task."""
+        return self.day
     
     def is_completed(self) -> bool:
         """Return the completion status of the task."""
@@ -265,5 +279,112 @@ class Scheduler:
     def _prioritize_tasks(self, pet_id: str) -> list:
         """Internal method to prioritize tasks for a specific pet based on constraints and preferences."""
         tasks = self.get_pet_tasks(pet_id)
-        return sorted(tasks, key=lambda t: t.get_priority(), reverse=True) 
+        return sorted(tasks, key=lambda t: t.get_priority(), reverse=True)
+    
+    def sort_by_time(self, tasks: list) -> list:
+        """Sort tasks by their time attribute in HH:MM format.
+        
+        Uses a lambda function to convert 'HH:MM' format to minutes since midnight for proper sorting.
+        
+        Args:
+            tasks: List of Task objects to sort
+        
+        Returns:
+            List of Task objects sorted chronologically by time
+        
+        Example:
+            >>> sorted_tasks = scheduler.sort_by_time(tasks)
+            >>> # Tasks now ordered: 08:00, 09:00, 14:00, 17:00, etc.
+        """
+        def time_to_minutes(time_str: str) -> int:
+            """Convert HH:MM format to minutes since midnight for comparison."""
+            try:
+                hours, minutes = map(int, time_str.split(':'))
+                return hours * 60 + minutes
+            except (ValueError, AttributeError):
+                return 0  # Default to start of day if time format is invalid
+        
+        # Sort using lambda function that converts HH:MM to minutes since midnight
+        return sorted(tasks, key=lambda t: time_to_minutes(t.get_time()))
+    
+    def _get_next_day(self, current_day: str, days_to_add: int) -> str:
+        """Helper method to calculate the next day of week.
+        
+        Args:
+            current_day (str): Current day name (Monday-Sunday)
+            days_to_add (int): Number of days to add (1 for daily, 7 for weekly)
+        
+        Returns:
+            str: Next day name (Monday-Sunday)
+        """
+        days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        try:
+            current_index = days_of_week.index(current_day)
+            next_index = (current_index + days_to_add) % 7
+            return days_of_week[next_index]
+        except ValueError:
+            return current_day  # Return original if day is invalid
+    
+    def mark_task_complete(self, pet_id: str, task_id: str) -> None:
+        """Mark a task as complete and create a new instance for recurring tasks.
+        
+        For tasks with 'daily' task_type, the new instance is scheduled for the next day.
+        For tasks with 'weekly' task_type, the new instance is scheduled for the same day next week.
+        For 'once' tasks, no new instance is created.
+        
+        Args:
+            pet_id (str): The ID of the pet whose task should be marked complete
+            task_id (str): The ID of the task to mark as complete
+        """
+        pet = self.owner.get_pet(pet_id)
+        if not pet:
+            return
+        
+        # Find and mark the task as complete
+        target_task = None
+        for task in pet.get_tasks():
+            if task.get_id() == task_id:
+                target_task = task
+                break
+        
+        if not target_task:
+            return
+        
+        # Mark current task as complete
+        target_task.mark_complete(True)
+        
+        # Create new task for next occurrence based on task_type
+        task_type = target_task.get_task_type().lower()
+        
+        if task_type in ["daily", "weekly"]:
+            # Create new task with same properties
+            new_task_id = str(uuid.uuid4())[:8]
+            
+            # Calculate the next occurrence day based on recurrence type
+            current_day = target_task.get_day()
+            if task_type == "daily":
+                # For daily tasks, shift by 1 day
+                next_day = self._get_next_day(current_day, 1)
+            elif task_type == "weekly":
+                # For weekly tasks, shift by 7 days (same day next week)
+                next_day = self._get_next_day(current_day, 7)
+            else:
+                next_day = current_day
+            
+            new_task = Task(
+                task_id=new_task_id,
+                name=target_task.get_name(),
+                description=target_task.get_description(),
+                task_type=target_task.get_task_type(),  # Preserve recurrence type
+                time=target_task.get_time(),
+                frequency=target_task.get_frequency(),  # Keep for compatibility
+                duration=target_task.get_duration(),
+                priority=target_task.get_priority(),
+                pet_id=pet_id,
+                day=next_day  # Set to shifted day
+            )
+            # Add new task to the pet
+            pet.add_task(new_task)
+
+
 
